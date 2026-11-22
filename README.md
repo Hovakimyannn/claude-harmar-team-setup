@@ -12,7 +12,8 @@ Start a new Claude Code session in your project, hand it [`SETUP-PROMPT.md`](SET
 - a PreToolUse guard that fences the specialists (tool allowlist, read-only Bash, no network programs, no access to
   your home folder), with a hybrid failure mode and about 180 tests;
 - helper skills copied verbatim from [ECC](https://github.com/affaan-m/ECC);
-- one Claude session per agent in the Claude desktop app, registered and fenced by the same guard.
+- one Claude session per agent in the Claude desktop app, registered and fenced by the same guard; a whole-project
+  review or test runs in these sessions instead of `/cr` subagents.
 
 ## Use
 
