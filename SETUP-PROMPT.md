@@ -91,7 +91,11 @@ Do not ask about these.
     take the team with it.
 11. The guard's `TOOLS` keeps `SubagentHandback`, which a subagent uses to return its report (without it `/cr` gets
     no answers), and `advisor`.
-12. Nothing else from other setups: no session guard, no "no wait loops" hook, no QA database.
+12. A whole-project review or test (the user asked for the whole project in words) runs in the team sessions, not
+    as `/cr` subagents. The lead sends one task per message to «@@TEAM@@ reviewer», «@@TEAM@@ security reviewer» and
+    «@@TEAM@@ QA», then the blocking findings to «@@TEAM@@ review verifier», and writes the one report itself. With
+    no registered team sessions it falls back to `/cr` subagents. A review of a change stays with `/cr` subagents.
+13. Nothing else from other setups: no session guard, no "no wait loops" hook, no QA database.
 
 ## Step 0: preflight (write nothing)
 
@@ -371,7 +375,8 @@ Otherwise leave this section out.>
   goes through `/cr <target> --qa`.
 - **Scope is always the current change.** Under git that is the diff; without git it is the files the user names.
   Review or test the whole project only when the user explicitly says so ("the whole project", "full audit", <the
-  same phrases in @@LANGUAGE@@>); a plain "review" or "check" means the current change.
+  same phrases in @@LANGUAGE@@>); a plain "review" or "check" means the current change. A whole-project review or
+  test runs in the team sessions, not as `/cr` subagents (the protocol is in `@@prefix@@-team`).
 - Reports go to `docs/code-review/`, in @@LANGUAGE@@; identifiers, paths and commands stay as they are.
 - Code under test runs only through `.claude/skills/cr/scripts/qa-sandbox.sh` (no network, writes only
   `/tmp/@@prefix@@-qa`). Offline lint: `.claude/skills/cr/scripts/lint.sh`.
@@ -468,9 +473,15 @@ do not register (like the setup session) are outside the team and unfenced.
 
 ## The lead
 
-- Reviews go through `/cr` (subagents, in parallel, one report in `docs/code-review/`). The specialist sessions are
-  for work that outlives one review: a re-review after fixes, a deeper look the user asked for, QA of a fix, a second
-  opinion on a disputed finding («@@TEAM@@ review verifier»).
+- Reviews of a change go through `/cr` (subagents, in parallel, one report in `docs/code-review/`).
+- A whole-project review or test (the user asked for the whole project in words) goes to the specialist sessions
+  instead of subagents. In one turn, send one task per message: correctness to «@@TEAM@@ reviewer», the security
+  surface to «@@TEAM@@ security reviewer», offline tests to «@@TEAM@@ QA». Each task carries the target block,
+  `SCOPE: whole project — the user asked: "<their words>"`, and asks for the result in one message to the lead. When
+  the review answers arrive, send the blocking and unconfirmed findings to «@@TEAM@@ review verifier», then write the
+  one report in `docs/code-review/` as `/cr` does. With no registered team sessions, run `/cr` with subagents.
+- The specialist sessions are also for work that outlives one review: a re-review after fixes, a deeper look the
+  user asked for, QA of a fix, a second opinion on a disputed finding («@@TEAM@@ review verifier»).
 - The lead appends the user's decisions to `docs/team/LOG.md` (date, decision, the user's words quoted).
   Specialists read it.
 - A new agent or role: add `.claude/agents/<name>.md`, register it in `SPECIALISTS` of `.claude/hooks/agent-guard.py`
@@ -514,7 +525,10 @@ failure even if it finds something.
 - `/cr` with no target, "review", "check" and the same words in @@LANGUAGE@@ all mean the change in front of you.
 - **The whole project only when the user asks in words**: "the whole project", "full audit", <the same phrases in
   @@LANGUAGE@@>. That is an audit: confirm the area and depth first, then every agent prompt carries
-  `SCOPE: whole project — the user asked: "<their words>"`.
+  `SCOPE: whole project — the user asked: "<their words>"`. The agents then run in the team sessions, not as
+  subagents: send the tasks of steps 3 and 7 together by `SendMessage`, as `@@prefix@@-team` describes (QA does not
+  wait for findings), end the turn, and go on with step 4 when the review answers arrive. With no registered team
+  sessions, run them as subagents.
 - Otherwise every agent prompt carries `SCOPE: current change only`.
 
 ## 1. Resolve the target
