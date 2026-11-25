@@ -6,7 +6,12 @@ Start a new Claude Code session in your project, hand it [`SETUP-PROMPT.md`](SET
 
 - house rules read from your code (`CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`) and a house skill with the
   project's facts;
-- four read-only specialist agents: reviewer, security reviewer, review verifier and offline QA;
+- a team designed for the project: four core specialists (reviewer, security reviewer, review verifier, offline QA)
+  plus project specialists chosen from the code — domain reviewers such as a SQL or 3D-scene reviewer, and advisers
+  such as a product manager, designer or domain analyst who write only their own `docs/<area>/`;
+- for a project that does not exist yet (no folder, an empty one, or only a template), a short interview first —
+  what the project is, for whom, its stack, where mistakes hurt, which roles it needs — and a team built from the
+  answers;
 - `/cr`, a code-review skill that lints the change, runs the reviewers in parallel, has the verifier try to refute
   every blocking finding, and writes one report;
 - a PreToolUse guard that fences the specialists (tool allowlist, read-only Bash, no network programs, no access to
@@ -17,12 +22,12 @@ Start a new Claude Code session in your project, hand it [`SETUP-PROMPT.md`](SET
 
 ## Use
 
-1. Open your project folder in Claude Code and start a new session.
+1. Open your project folder in Claude Code and start a new session, or put the folder's path in the PROJECT field.
 2. Copy `SETUP-PROMPT.md` into the project and fill in the fields at its top, or leave them blank.
 3. Send `Read SETUP-PROMPT.md and follow it.` You can also paste the whole file as your message.
 
 The prompt answers the design questions in advance, so the session builds everything in one go and stops only for
-network access, git commits or anything the prompt does not list.
+the interview (when there is no project yet), network access, git commits or anything the prompt does not list.
 
 ## Requirements
 

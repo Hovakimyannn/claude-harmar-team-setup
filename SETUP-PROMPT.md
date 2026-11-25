@@ -1,13 +1,17 @@
 # Claude Code team setup for any project
 
-One prompt that gives a project a guarded team of Claude Code agents: house rules read from the code, four read-only
-specialist agents (reviewer, security reviewer, review verifier, offline QA), a `/cr` code-review skill, a PreToolUse
-guard that fences the specialists, helper skills taken from [ECC](https://github.com/affaan-m/ECC), and one Claude
-session per agent.
+One prompt that gives a project a guarded team of Claude Code agents built for that project: house rules read from
+the code, four core specialists (reviewer, security reviewer, review verifier, offline QA) plus project specialists
+designed from the code or, for a project that does not exist yet, from a short interview (domain reviewers such as a
+SQL or 3D-scene reviewer, and advisers such as a product manager, designer or domain analyst), a `/cr` code-review
+skill, a PreToolUse guard that fences every specialist, helper skills taken from
+[ECC](https://github.com/affaan-m/ECC), and one Claude session per agent.
 
-**How to use it.** Open the project folder in Claude Code and start a new session. Fill in the fields below or
-leave them blank. Then either send this whole file as your message, or save it in the project (for example as
-`SETUP-PROMPT.md`) and send: `Read SETUP-PROMPT.md and follow it.`
+**How to use it.** Open the project folder in Claude Code and start a new session, or name the folder in PROJECT.
+Fill in the fields below or leave them blank. Then either send this whole file as your message, or save it in the
+project (for example as `SETUP-PROMPT.md`) and send: `Read SETUP-PROMPT.md and follow it.` Without a project (no
+folder, an empty one, or only a generated template), the setup first asks what the project is and what it is for,
+and builds the team from the answers.
 
 **What it needs.** bash and python3 3.8 or newer. The offline QA sandbox needs Linux (`unshare -rn`); on other
 systems QA is limited to static checks. One session per agent needs the Claude desktop app (Code tab); elsewhere the
@@ -17,13 +21,17 @@ setup prints the session briefs for you to paste. The only network access is one
 
 ## Fields
 
+- PROJECT (path to the project folder):
+- ABOUT (what the project is, what it does and for whom; optional):
 - PREFIX:
 - TEAM:
 - LANGUAGE:
 - HOSTS:
 - HUMANIZER (optional path to a humanizer-style writing skill folder):
 
-Blank fields: PREFIX is the first word of the project folder name, lowercased, letters and digits only (`acme-api`
+Blank fields: PROJECT is the session's folder; when the session has no folder of its own (the app made a scratch
+folder for it), PROJECT is unknown and the interview asks for it first. ABOUT, when filled, counts as answers to the
+interview. PREFIX is the first word of the project folder name, lowercased, letters and digits only (`acme-api`
 gives `acme`). PREFIX followed by `-` must not be the start of any agent type the Agent tool already lists, because
 the guard refuses every unregistered agent with that start: `web` would block `web-fetch`, `code` would block
 `code-simplifier`, and `claude`, `general` or `statusline` collide the same way. On a collision, join the first two
@@ -32,14 +40,30 @@ language of any words I wrote around this prompt, or English when there are none
 code talks to (APIs, CDNs, databases, third-party sites), found in step 1. HUMANIZER, when blank, is
 `~/.claude/skills/humanizer` if it exists, otherwise none. The final report says what you chose.
 
+## Mode: a given project, or an interview
+
+- **Given project.** PROJECT names a folder, or the session's folder holds code from which you can say in one
+  sentence what the product does and for whom. The code is the source: step 1 reads it, and step 1b designs the team
+  from it. ABOUT, when filled, adds to the code; where they differ, the code wins and the report says so.
+- **Interview.** Everything else: no folder, an empty folder, or only a generated template or scaffold (a framework
+  starter with placeholder components, a starter README, an empty entry point). A template tells you the framework,
+  not the project. Step 1 then asks me what the project is (the interview below) before anything is written, and
+  step 1b designs the team from my answers. Read the template anyway: its stack, versions and commands are real.
+- **Another folder.** When PROJECT is not the session's folder, move the session there first (in the desktop app,
+  `change_directory` with that path), write every file there, and start the team sessions with `cwd` set to it. When
+  the session has no folder of its own and PROJECT is blank, the interview's first question is where the project
+  lives: an existing folder, or a new one to create (creating it is part of this prompt's yes).
+
 ## Your task
 
 You are the setup session. Build everything below in this project in one go, then report. The design is decided: do
-not brainstorm, do not offer a list of proposals, do not ask me to approve a plan. This prompt is my explicit yes to
-every step below, including starting the five team sessions in step 5. Do not stop between steps.
+not brainstorm, do not offer a list of proposals, do not ask me to approve a plan; the team's project specialists are
+yours to design in step 1b, from the code or my answers, without asking me to approve the list. This prompt is my
+explicit yes to every step below, including starting the team sessions in step 5. Do not stop between steps.
 
 Stop and ask me only when:
 
+- the project is not given (see "Mode"): the interview in step 1, once, before anything is written;
 - a step needs network access other than the ECC clone in step 2;
 - a step needs `git init`, a commit or a push;
 - you would do something this prompt does not list;
@@ -56,12 +80,14 @@ Talk to me in LANGUAGE. Keep identifiers, paths and commands as they are.
 | Code rules | `AGENTS.md` | the project's real code standards, read from the code |
 | House skill | `.claude/skills/@@prefix@@-@@area@@/SKILL.md` | facts of this project: what runs where, contracts, data, network, known weaknesses |
 | Helper skills | `.claude/skills/<ecc-skill>/` | verbatim from ECC, each with ECC's `LICENSE` |
-| Agents | `.claude/agents/@@prefix@@-{reviewer,security-reviewer,review-verifier,qa}.md` | read-only specialists, `model: inherit` |
+| Team design | the team table (step 1b), kept in the team skill and in `docs/team/LOG.md` | which specialists this project has and why |
+| Agents | `.claude/agents/@@prefix@@-<role>.md`, one per row of the team table | the four core roles plus the project specialists, `model: inherit` |
 | Review skill | `.claude/skills/cr/SKILL.md`, `scripts/lint.sh`, `scripts/qa-sandbox.sh` | `/cr`: lint, parallel reviewers, verifier, one report |
 | Guard | `.claude/hooks/agent-guard.py`, `.claude/hooks/agent-guard-cases.py` | PreToolUse allowlist for the specialists, with its tests |
 | Team | `.claude/team/register.py`, `.claude/hooks/team-session-start.py`, `.claude/skills/@@prefix@@-team/SKILL.md` | one session per agent, registered and fenced |
 | Hooks | `.claude/settings.json` | launchers for the guard (hybrid failure mode) and the session-start reminder |
 | Logs | `docs/team/LOG.md`, `docs/code-review/` | the user's decisions; review reports |
+| Adviser folders | `docs/<area>/`, one per project adviser | the only place an adviser writes: notes, proposals, data, mockups |
 | Ignores | `.claudeignore`, `.graphifyignore` | keep binaries, dependencies, build output and `.claude/` out of context and graphs |
 
 ## Decisions already made
@@ -72,7 +98,9 @@ Do not ask about these.
    70+ agents with "MUST BE USED / PROACTIVELY" descriptions would run outside the guard. Take only the skills that
    fit this project, verbatim with ECC's `LICENSE`, as helper skills. Good ideas from ECC agents are rewritten into
    the house agents. Where a helper skill disagrees with a house rule, the house rule wins.
-2. Specialists are read-only. Only the main session (the lead) changes code, config and git.
+2. Only the main session (the lead) changes code, config and git. The core roles and the project reviewers are
+   read-only (QA writes only its `/tmp` scratch); a project adviser writes only its own `docs/<area>/` folder
+   (notes, proposals, data, mockups), never code, config, `.claude/`, `docs/team/` or `docs/code-review/`.
 3. The guard is an allowlist. An agent whose name starts with `@@prefix@@-` but is not in `SPECIALISTS` is refused
    outright, so every new agent has to be registered.
 4. The hook failure mode is hybrid. If the guard file or python3 is missing, the launcher blocks the specialists and
@@ -86,16 +114,20 @@ Do not ask about these.
 8. Optional ECC skills that add little to reviewing this project (for example `accessibility`, `click-path-audit`)
    are left out and listed as proposals.
 9. Graphify gets a conditional rule in `CLAUDE.md` and nothing more: no hooks, and you do not build a graph.
-10. One session per agent, fenced by the same guard: the lead «@@LEAD@@» plus four specialist sessions. The lead is
-    pinned, and every team session is detached from this setup session, so archiving the setup session later does not
-    take the team with it.
+10. One session per agent, fenced by the same guard: the lead «@@LEAD@@» plus one session per row of the team table.
+    The lead is pinned, and every team session is detached from this setup session, so archiving the setup session
+    later does not take the team with it.
 11. The guard's `TOOLS` keeps `SubagentHandback`, which a subagent uses to return its report (without it `/cr` gets
     no answers), and `advisor`.
 12. A whole-project review or test (the user asked for the whole project in words) runs in the team sessions, not
-    as `/cr` subagents. The lead sends one task per message to «@@TEAM@@ reviewer», «@@TEAM@@ security reviewer» and
-    «@@TEAM@@ QA», then the blocking findings to «@@TEAM@@ review verifier», and writes the one report itself. With
-    no registered team sessions it falls back to `/cr` subagents. A review of a change stays with `/cr` subagents.
+    as `/cr` subagents. The lead sends one task per message to «@@TEAM@@ reviewer», «@@TEAM@@ security reviewer»,
+    each project reviewer whose area is in scope, and «@@TEAM@@ QA», then the blocking findings to «@@TEAM@@ review
+    verifier», and writes the one report itself. With no registered team sessions it falls back to `/cr` subagents. A
+    review of a change stays with `/cr` subagents.
 13. Nothing else from other setups: no session guard, no "no wait loops" hook, no QA database.
+14. The team fits the project. The four core roles always exist, because `/cr` and the guard are built on them; the
+    project specialists on top of them come from the code or from my answers (step 1b). No project specialist
+    without an area that exists in the code or in my words, and no generic filler.
 
 ## Step 0: preflight (write nothing)
 
@@ -110,15 +142,68 @@ Do not ask about these.
   guard; list them in the report.
 - The agent types the Agent tool lists, for the PREFIX collision rule in the fields.
 - Whether `graphify` is on the PATH, and whether the HUMANIZER folder has a `SKILL.md`.
+- The mode (see "Mode"): is PROJECT another folder, does the session have a folder of its own, and does the folder
+  hold the project's own code or only a template? List the source files and their sizes to decide.
 
-## Step 1: read the project
+## Step 1: read the project, or ask
 
-Read the code itself and trust it over the README. Find the language and runtime, the entry points, how the parts
-talk to each other (HTTP routes, queues, messages, CLI), data and storage, the external hosts (they fill HOSTS),
-secrets (`.env`, keys, tokens) and where they are read, build, test and lint commands, dependencies, and the code
-style as it is actually written (indentation, quotes, naming, error handling, logging, comments). In a large project,
-read the entry points and the main paths, and list what you did not read. Pick AREA: one word for the house skill,
-such as `backend`, `extension`, `web` or `cli`.
+**Given project.** Read the code itself and trust it over the README. Find the language and runtime, the entry
+points, how the parts talk to each other (HTTP routes, queues, messages, CLI), data and storage, the external hosts
+(they fill HOSTS), secrets (`.env`, keys, tokens) and where they are read, build, test and lint commands,
+dependencies, and the code style as it is actually written (indentation, quotes, naming, error handling, logging,
+comments). Note the project's distinct areas (a second language, a database layer, a rendering or 3D layer, a public
+API, a simulation core, a payment flow) and its non-code concerns (users, money, content, legal), because step 1b
+builds the team from them. In a large project, read the entry points and the main paths, and list what you did not
+read. Pick AREA: one word for the house skill, such as `backend`, `extension`, `web`, `video` or `cli`.
+
+**Interview.** Before writing anything, ask me in LANGUAGE, in one message (with `AskUserQuestion` when you have it:
+up to four questions with options, each also open to my own words; otherwise a short numbered list), and wait:
+
+1. What is the project: what it does and for whom, in one or two sentences. Where it lives, when PROJECT is unknown.
+2. What kind and stack: web backend or API, web app or UI, browser extension, mobile app, video or animation, data or
+   ML pipeline, CLI or library, game, other; with the language, framework and runtime when they are decided.
+3. Where mistakes hurt most: correctness of data or money, security and privacy, performance, look and UX, content
+   and wording, legal and compliance, releases.
+4. Which roles the team needs besides code review: product manager, UX/UI designer, marketing and SEO, legal and
+   privacy, growth and research, release engineer, a domain analyst (name the domain), none.
+
+Ask at most one follow-up message, and only for what step 1b cannot do without (for example the external services,
+for HOSTS). ABOUT and a template in the folder count as answers already given: do not ask what they settle. My
+answers are the source for AREA, HOSTS, the planned stack and the team; quote them in `docs/team/LOG.md`.
+
+## Step 1b: design the team
+
+Write the team table before any file. Every later piece is generated from it, one entry per row: the guard's
+`SPECIALISTS`, `ROLES` in `register.py`, the table in the team skill, the reviewer rows of `/cr`, the agent files,
+the session briefs, the log entry and the report.
+
+| Column | Meaning |
+|---|---|
+| slug | `@@prefix@@-<role>`, lowercase letters, digits and `-` |
+| session | «@@TEAM@@ <role name>» |
+| kind | `core`, `project reviewer` or `project adviser` |
+| owns | concrete paths, or the subject it covers (`src/db/**` and `*.sql`; "the virtual currency"; "the widget's UX") |
+| writes | core and project reviewers: nothing (QA: `/tmp/@@prefix@@-qa`); a project adviser: `docs/<area>/` |
+| `/cr` trigger | a project reviewer: the paths and the `grep -nE` pattern on the diff that bring it in; others: — |
+| helper skills | the ECC skills (step 2) and the project's own installed skills it loads after the house skill |
+| why | one line: the code, or my words, that call for this specialist |
+
+Rows:
+
+- **Core, always:** `@@prefix@@-reviewer` (correctness), `@@prefix@@-security-reviewer`,
+  `@@prefix@@-review-verifier`, `@@prefix@@-qa`.
+- **Project reviewers:** one per technical area whose mistakes the general reviewer would judge only shallowly: a
+  second language or runtime (`go-reviewer`), a database with real queries and migrations (`sql-reviewer`), a
+  rendering, 3D or WebGL layer (`scene-reviewer`), animation and timing (`motion-reviewer`), a public API contract
+  (`api-reviewer`), a browser-extension surface, a simulation or numeric core, a payment flow. Read-only; `/cr`
+  runs one when its trigger matches the change.
+- **Project advisers:** one per non-code concern the code or my answers name: product manager, UX/UI designer,
+  marketing and SEO, legal and privacy, growth and research, release engineer, a domain analyst (an economist for a
+  virtual currency, a match analyst for a comparison engine). They read the project and write only into their own
+  `docs/<area>/` (never `docs/team/` or `docs/code-review/`); they propose, the lead decides.
+- **Size:** as many as the project has real areas, usually two to six project specialists; more only when I asked
+  for them. Every row needs an area that exists in the code or in my answers; merge two that would overlap. No two
+  rows share a slug or a session title.
 
 ## Step 2: ECC helper skills
 
@@ -129,8 +214,12 @@ git clone --depth 1 https://github.com/affaan-m/ECC <your scratchpad>/ecc-src/EC
 git -C <your scratchpad>/ecc-src/ECC log -1 --format=%h
 ```
 
-Read `agents/` and `skills/`. Take a skill when its content applies to this stack and to reviewing or testing it.
-Leave out ECC agents as agents, anything that writes code, skills that need the network (`npx`, `npm install`, live
+Read `agents/` and `skills/`. Take a skill when its content applies to this stack and to reviewing or testing it, or
+to the domain of a row of the team table (for an adviser, for example `seo`, `market-research`, `brand-voice`,
+`product-lens`, `design-system`, `frontend-a11y`, `hipaa-compliance`). For every project specialist, read the ECC
+agents of its domain and rewrite their good ideas into its agent file. Skills the project already installed (a
+framework vendor's skills in `.claude/skills/`) count too: name them in the rows that use them, and leave them as they
+are. Leave out ECC agents as agents, anything that writes code, skills that need the network (`npx`, `npm install`, live
 scans), skills that bring their own hooks (`gateguard`, `safety-guard`, `plankton-code-quality` and similar), and
 skills for another language or framework. Always take `security-review`, and `agent-security-hardening`, which the
 security reviewer uses to review the guard. Typical additions are `error-handling`, `change-impact`, `e2e-testing`,
@@ -150,19 +239,21 @@ Appendices A to F and templates T1 to T6 use these tokens. Replace every one of 
 | `@@PREFIX@@` | PREFIX in capitals |
 | `@@TEAM@@` | TEAM |
 | `@@LEAD@@` | TEAM in capitals followed by ` - Coding` (for example `ACME - Coding`) |
-| `@@PROJECT@@` | the product or project name, from the code |
+| `@@PROJECT@@` | the product or project name, from the code or my answers |
 | `@@area@@` | AREA |
 | `@@DATE@@` | today, YYYY-MM-DD |
 | `@@LANGUAGE@@` | LANGUAGE |
 | `@@HOSTS@@` | HOSTS, comma separated, or `external services` when there are none |
-| `@@code_file@@`, `@@subdir@@`, `@@ext@@` | Appendix B only: a real source file and a real subdirectory (both relative to the project root), and the main source extension |
+| `@@code_file@@`, `@@subdir@@`, `@@ext@@` | Appendix B only: a real source file and a real subdirectory (both relative to the project root), and the main source extension; the most stable ones, such as the entry point. With no code yet: `AGENTS.md`, `docs/team` and `md` |
 
 ### Copy from the appendices
 
-- A to `.claude/hooks/agent-guard.py`. Change only the placeholders and the constants marked `STACK`.
+- A to `.claude/hooks/agent-guard.py`. Change only the placeholders, the constants marked `STACK`, and
+  `SPECIALISTS`: one entry per row of the team table (a project adviser:
+  `"@@prefix@@-<role>": [os.path.join(ROOT, "docs", "<area>")]`).
 - B to `.claude/hooks/agent-guard-cases.py`. Fill `CODE`, `SUBDIR` and `EXT`. Add cases for whatever you add to
   `READ_ONLY`, `SCRIPTS`, `SECRET_NAME` or `RUNTIME_CHECK`, and never delete an existing refusal case.
-- C to `.claude/team/register.py`.
+- C to `.claude/team/register.py`, with `ROLES` holding `lead` and every slug of the team table.
 - D to `.claude/hooks/team-session-start.py`.
 - E to `.claude/settings.json`. If the file exists, add the two hook entries to it.
 - F to `.claude/skills/cr/scripts/qa-sandbox.sh` when the project runs on Node. For another runtime, write the
@@ -175,8 +266,9 @@ Make the scripts executable.
 ### Write from the templates
 
 T1 is `CLAUDE.md`, T2 `.claude/CLAUDE.md`, T3 `.claude/skills/@@prefix@@-team/SKILL.md`, T4
-`.claude/skills/cr/SKILL.md`, T5 the four agents, T6 `docs/team/LOG.md`. Text in `<angle brackets>` inside a
-template is an instruction to you; replace it with real content for this project.
+`.claude/skills/cr/SKILL.md`, T5 the agents (one file per row of the team table), T6 `docs/team/LOG.md`. Text in
+`<angle brackets>` inside a template is an instruction to you; replace it with real content for this project. Create
+each adviser's `docs/<area>/` folder.
 
 ### Derive from the code
 
@@ -202,12 +294,27 @@ template is an instruction to you; replace it with real content for this project
   `__pycache__`. `.graphifyignore` also lists `.claude/` and `docs/code-review/`. If graphify is used,
   `.claudeignore` hides `graphify-out/` except `graphify-out/wiki/index.md`.
 
+In interview mode there is little or no code to derive from. Then:
+
+- `AGENTS.md` section 1 holds the stack from my answers and the template, marked "planned"; sections 2 to 4 hold only
+  what the template shows, each with the line "To be read from the code once it exists"; sections 5 and 6 as usual.
+  The top says it was written from the user's answers on @@DATE@@.
+- The house skill describes what the project will be, from my answers, marked as the plan; "known weaknesses" is
+  "none yet"; the offline-QA section says what will be testable with the planned runtime.
+- `lint.sh` covers the planned stack, and every checker is optional: skipped with a `WARN` when its tool or the code
+  is missing, so an empty project exits 0. `qa-sandbox.sh` targets the planned runtime and refuses with a clear
+  message while that runtime is not installed.
+- `docs/team/LOG.md` gets a line that, once the first real code lands, the lead proposes refreshing `AGENTS.md`, the
+  house skill, the agents' checklists and the team table from the code, and does it after the user's yes.
+
 ### Never
 
 - Do not write `sessions.json` or `specialists.txt` yourself; `register.py` creates them.
 - Do not leave a placeholder or a template instruction in any file.
 - Do not substitute `general-purpose` for a house agent; it runs without the guard. Agent files load when a session
   starts, so this setup session cannot run the new agents at all. The lead tests them in step 5.
+- Do not give an adviser the project root, a code folder, `.claude/`, `docs/team/` or `docs/code-review/` as its
+  folder; `agent-guard-cases.py` fails on it.
 
 ### Traps
 
@@ -216,8 +323,10 @@ template is an instruction to you; replace it with real content for this project
   hybrid mode.
 - `/tmp/@@prefix@@-qa` appears in the guard's `SPECIALISTS`, in the sandbox script, in the QA agent and in the cases.
 - `@@PREFIX@@_TEAM_DIR` appears in the guard, in the cases and in `team-session-start.py`.
-- A new agent goes into `SPECIALISTS` in the guard, `ROLES` in `register.py` and the table in the team skill, and
-  then the cases are run again.
+- A new agent goes into `SPECIALISTS` in the guard, `ROLES` in `register.py`, the table in the team skill and, for a
+  project reviewer, the reviewers table of `/cr`, and then the cases are run again.
+- In `agent-guard.py`, `ROOT` must stay above `SPECIALISTS`: an adviser's folder is built from it, and an error at
+  module level makes the guard exit 1, which the launcher does not treat as a refusal.
 
 ## Step 4: verify offline
 
@@ -230,6 +339,8 @@ All of these must hold before step 5.
   that tries the network cannot reach it. Remove `/tmp/@@prefix@@-qa/` afterwards.
 - Every JSON file parses, every agent and skill frontmatter parses, and every `.claude/agents/*.md` is in
   `SPECIALISTS` and in `ROLES`.
+- Every row of the team table has an agent file, a `SPECIALISTS` entry, a `ROLES` entry and a row in the team skill;
+  every project reviewer has a row in the `/cr` reviewers table; every adviser's `docs/<area>/` exists.
 - No placeholder is left in the files you wrote. The copied ECC skills stay out of this check, because they can
   contain `@@` legitimately:
 
@@ -243,15 +354,18 @@ All of these must hold before step 5.
 
 Skip this step if `CLAUDE_CODE_SESSION_ID` was empty.
 
-If you have the Claude desktop app's session tools (starting, detaching and pinning sessions), start five sessions
-with `initiation: "user_asked"`, `context: "fresh"`, `use_worktree: false` and exactly these titles: «@@LEAD@@»,
-«@@TEAM@@ reviewer», «@@TEAM@@ security reviewer», «@@TEAM@@ review verifier», «@@TEAM@@ QA». In each `background`,
-write one sentence about the project, one about the team (the lead is the only session that changes code, the four
-specialists are fenced by the guard, messages go by SendMessage as the team skill describes), and that the user set it
-up with this prompt. Without those tools, print the five briefs and ask me to open five sessions in this folder with
-those titles and paste one brief into each.
+If you have the Claude desktop app's session tools (starting, detaching and pinning sessions), start one session for
+the lead and one per row of the team table, with `initiation: "user_asked"`, `context: "fresh"`,
+`use_worktree: false`, `cwd` set to the project folder when it is not this session's folder, and exactly these
+titles: «@@LEAD@@» and the session titles of the table. In each `background`, write one sentence about the project,
+one about the team (the lead is the only session that changes code, the specialists are fenced by the guard, messages
+go by SendMessage as the team skill describes), and that the user set it up with this prompt. Without those tools,
+print the briefs and ask me to open one session per brief in this folder with those titles and paste one brief into
+each.
 
-The lead's brief (the live probe is here because a fresh session has the new agents loaded):
+The lead's brief (the live probe is here because a fresh session has the new agents loaded). Fill in the slugs, the
+project file (with no code yet: `AGENTS.md`) and the adviser part yourself, or drop that part when the team has no
+adviser; `<that name>` stays as it is, for the lead:
 
 > You are the lead session «@@LEAD@@» of the @@PROJECT@@ project (role `lead`). This first turn is setup and a live
 > guard check only: do not change any project file, do not commit, do not contact any server.
@@ -259,25 +373,27 @@ The lead's brief (the live probe is here because a fresh session has the new age
 > 1. Run `ListAgents` and take this session's name exactly as it prints it ("This session is …").
 > 2. Register: `python3 .claude/team/register.py lead "<that name>"`.
 > 3. Load the skill `@@prefix@@-team`; read `AGENTS.md`, `.claude/CLAUDE.md` and `docs/team/LOG.md`.
-> 4. Live guard check. Confirm that the Agent tool lists `@@prefix@@-reviewer`, `@@prefix@@-security-reviewer`,
->    `@@prefix@@-review-verifier` and `@@prefix@@-qa`; if not, report it and stop. Launch `@@prefix@@-reviewer` with
->    these steps, each a separate tool call, no retries: (a) Read the first 5 lines of a project file; (b) Bash
+> 4. Live guard check. Confirm that the Agent tool lists every agent of the team: <the slugs of the team table>; if
+>    not, report it and stop. Launch `@@prefix@@-reviewer` with
+>    these steps, each a separate tool call, no retries: (a) Read the first 5 lines of <a project file>; (b) Bash
 >    `curl --version`; (c) Bash `sed -n '1,3p' <a project file>`; (d) Bash `ls ~`; (e) Write
 >    `/tmp/@@prefix@@-guard-probe.txt`. Expected: a and c allowed; b and d refused by `.claude/hooks/agent-guard.py`;
 >    e refused or the tool not available; and the agent's report reaches you through `SubagentHandback` on the first
 >    try. Launch `@@prefix@@-qa`: write a trivial passing test to `/tmp/@@prefix@@-qa/` and run it through
->    `.claude/skills/cr/scripts/qa-sandbox.sh`. Expected: both allowed, the test passes. Then remove
->    `/tmp/@@prefix@@-guard-probe.txt` (if it exists, the guard did not fire) and `/tmp/@@prefix@@-qa/`, and run
->    `python3 .claude/hooks/agent-guard-cases.py`.
+>    `.claude/skills/cr/scripts/qa-sandbox.sh`. Expected: both allowed, the test passes. <If the team has a project
+>    adviser:> Launch `<its slug>`: (f) Write `<its docs/<area>/>guard-probe.md`; (g) Write `<a new file next to the
+>    code, never an existing one: src/guard-probe.<ext>>`. Expected: f allowed, g refused. Then remove
+>    `/tmp/@@prefix@@-guard-probe.txt` and the file of step g (if either exists, the guard did not fire),
+>    `/tmp/@@prefix@@-qa/` and the adviser's `guard-probe.md`, and run `python3 .claude/hooks/agent-guard-cases.py`.
 > 5. Run `python3 .claude/team/register.py --show`.
 > 6. If your system prompt names a shared notes folder, write the probe as a table (step, expected, got, first line
 >    of each refusal) to `guard-live-probe-@@DATE@@.md` there.
 > 7. Reply in @@LANGUAGE@@. The first line is `PROBE PASS` or `PROBE FAIL` and the file name, because only the first
 >    400 characters of your reply reach the session that started you. Then your registered name and role, who else
->    is registered so far (the four specialists register in parallel, so some may be missing), the probe table if
+>    is registered so far (the specialists register in parallel, so some may be missing), the probe table if
 >    you had no notes folder, and that you are waiting for the user's task. Then stop.
 
-A specialist's brief, once for each role (`reviewer`, `security-reviewer`, `review-verifier`, `qa`):
+A specialist's brief, once for each row of the team table:
 
 > You are the team session «@@TEAM@@ <role name>» of the @@PROJECT@@ project (role `@@prefix@@-<role>`). This
 > first turn is setup only: do not review, verify or test anything yet.
@@ -292,15 +408,16 @@ A specialist's brief, once for each role (`reviewer`, `security-reviewer`, `revi
 >    from «@@LEAD@@» or the user. Then stop; do not start work of your own.
 
 For QA, point 2 also says that it writes only to `/tmp/@@prefix@@-qa` and runs code only through
-`.claude/skills/cr/scripts/qa-sandbox.sh`. In every brief, point 1 adds: if `ListAgents` is not available, use the
-session's title as its name.
+`.claude/skills/cr/scripts/qa-sandbox.sh`; for a project adviser, that it writes only to its `docs/<area>/`, and
+point 1 of its first turn says "do not research, propose or write anything yet". In every brief, point 1 adds: if
+`ListAgents` is not available, use the session's title as its name.
 
-When all five have answered:
+When all of them have answered:
 
-- `python3 .claude/team/register.py --show` lists five sessions.
+- `python3 .claude/team/register.py --show` lists the lead and every row of the team table.
 - Read the lead's probe file in the shared notes folder. If the probe failed, fix the guard (this setup session is
   outside the team and may change it), run the cases again, and tell the lead in one line.
-- Pin the lead and detach all five sessions from this one, one detach call each. Check with the session list that
+- Pin the lead and detach every team session from this one, one detach call each. Check with the session list that
   they are no longer marked as started by this session. If pinning or detaching is refused, do not retry; tell me the
   manual step (right-click the session in the sidebar, then "Detach to top level" or "Pin").
 - Do not archive yourself.
@@ -308,6 +425,8 @@ When all five have answered:
 ## Step 6: final report, in LANGUAGE
 
 - The PREFIX, TEAM, LANGUAGE, HOSTS and AREA you chose, if any field was blank.
+- The mode (given project or interview) and, after an interview, my answers in short.
+- The team table: every specialist with its kind, what it owns and why it is there.
 - The ECC commit; the skills you took and why; what you left out and why, briefly.
 - The files you created and the files you changed.
 - Check results: the number of passing cases, lint, the sandbox, the lead's live probe.
@@ -383,10 +502,13 @@ Otherwise leave this section out.>
 
 # Agents
 
-- Four house agents, `model: inherit`, read-only towards the project: `@@prefix@@-reviewer` (correctness),
-  `@@prefix@@-security-reviewer` (security surface), `@@prefix@@-review-verifier` (tries to refute blocking
-  findings), `@@prefix@@-qa` (offline tests). They report; **only the lead «@@LEAD@@» changes code, config and git**
-  (and sessions outside the team, such as the setup session).
+- House agents, `model: inherit`, one per row of the team table in `@@prefix@@-team`. Core:
+  `@@prefix@@-reviewer` (correctness), `@@prefix@@-security-reviewer` (security surface),
+  `@@prefix@@-review-verifier` (tries to refute blocking findings), `@@prefix@@-qa` (offline tests). Project
+  specialists: <one line per project row: slug — what it owns; "adviser, writes `docs/<area>/`" for an adviser>.
+  Core roles and project reviewers are read-only; an adviser writes only its own `docs/<area>/`. They report and
+  propose; **only the lead «@@LEAD@@» changes code, config and git** (and sessions outside the team, such as the
+  setup session).
 - **Helper skills from ECC** (https://github.com/affaan-m/ECC, commit <hash>, MIT, verbatim with `LICENSE`): <list>.
   Each house agent says which ones it loads, after `@@prefix@@-@@area@@`. Apply them where the work touches them,
   also when coding in the main session. **Where a helper disagrees with a house rule, the house rule wins.** ECC
@@ -398,8 +520,8 @@ Otherwise leave this section out.>
 - **Hybrid failure mode**: if the guard file or python3 is missing, the launcher blocks `@@prefix@@-*` agents and
   lets the main session through with a warning; an error inside the guard refuses the specialist. The main session
   is never locked out.
-- **Team of sessions**: the lead «@@LEAD@@» and one session per agent: «@@TEAM@@ reviewer», «@@TEAM@@ security
-  reviewer», «@@TEAM@@ review verifier», «@@TEAM@@ QA». Each registers once with
+- **Team of sessions**: the lead «@@LEAD@@» and one session per agent: <the session titles of the team table>. Each
+  registers once with
   `python3 .claude/team/register.py <role> "<name>"`; the guard then fences a specialist session like a subagent,
   and `.claude/hooks/team-session-start.py` (SessionStart) reminds it of its role. Messages between sessions go by
   `SendMessage`. The protocol is the skill `@@prefix@@-team`; load it at the start of every team session. The lead
@@ -413,7 +535,7 @@ Otherwise leave this section out.>
 ````markdown
 ---
 name: @@prefix@@-team
-description: How the @@PROJECT@@ team of Claude sessions works — who is who (the lead «@@LEAD@@» and the specialist sessions @@TEAM@@ reviewer, @@TEAM@@ security reviewer, @@TEAM@@ review verifier, @@TEAM@@ QA), how a session registers its role, how sessions message each other, what a specialist may and may not do, and where decisions are logged. Load it at the start of every team session and whenever you send a task to, or answer, another session of this project.
+description: How the @@PROJECT@@ team of Claude sessions works — who is who (the lead «@@LEAD@@» and the specialist sessions <the session titles of the team table, without guillemets>), how a session registers its role, how sessions message each other, what a specialist may and may not do, and where decisions are logged. Load it at the start of every team session and whenever you send a task to, or answer, another session of this project.
 ---
 
 <The NEVER CONNECT header from T5.>
@@ -425,13 +547,16 @@ subagents inside `/cr`; both are held by the same guard.
 
 ## Who is who
 
-| Role | Session | Changes things? | Agent file |
-|---|---|---|---|
-| `lead` | «@@LEAD@@» | **Yes, the only one**: code, config, skills, agents, `docs/` | none |
-| `@@prefix@@-reviewer` | «@@TEAM@@ reviewer» | No | `.claude/agents/@@prefix@@-reviewer.md` |
-| `@@prefix@@-security-reviewer` | «@@TEAM@@ security reviewer» | No | `.claude/agents/@@prefix@@-security-reviewer.md` |
-| `@@prefix@@-review-verifier` | «@@TEAM@@ review verifier» | No | `.claude/agents/@@prefix@@-review-verifier.md` |
-| `@@prefix@@-qa` | «@@TEAM@@ QA» | No (writes only `/tmp/@@prefix@@-qa`) | `.claude/agents/@@prefix@@-qa.md` |
+| Role | Session | Kind | Owns | Changes things? | Agent file |
+|---|---|---|---|---|---|
+| `lead` | «@@LEAD@@» | lead | everything | **Yes, the only one**: code, config, skills, agents, `docs/team/`, `docs/code-review/` | none |
+| `@@prefix@@-reviewer` | «@@TEAM@@ reviewer» | core | correctness of every change | No | `.claude/agents/@@prefix@@-reviewer.md` |
+| `@@prefix@@-security-reviewer` | «@@TEAM@@ security reviewer» | core | the security surface | No | `.claude/agents/@@prefix@@-security-reviewer.md` |
+| `@@prefix@@-review-verifier` | «@@TEAM@@ review verifier» | core | verdicts on blocking findings | No | `.claude/agents/@@prefix@@-review-verifier.md` |
+| `@@prefix@@-qa` | «@@TEAM@@ QA» | core | offline tests | No (writes only `/tmp/@@prefix@@-qa`) | `.claude/agents/@@prefix@@-qa.md` |
+<one row per project specialist of the team table: slug, session, `project reviewer` or `project adviser`, what it owns, "No" for a reviewer or "Only `docs/<area>/`" for an adviser, its agent file>
+
+Why each project specialist is here: <one line per project row, the "why" column of the team table>.
 
 `python3 .claude/team/register.py --show` prints the registered sessions with their names and ids.
 
@@ -444,7 +569,8 @@ python3 .claude/team/register.py <role> "<this session's name>"
 ```
 
 From then on `.claude/hooks/agent-guard.py` treats a specialist session exactly like a @@prefix@@-* subagent
-(read-only project, read-only Bash, no network programs, no web or MCP, messages only to the team), and
+(read-only project except an adviser's own `docs/<area>/`, read-only Bash, no network programs, no web or MCP,
+messages only to the team), and
 `.claude/hooks/team-session-start.py` reminds the session of its role after a restart or a compaction. A role is set
 once; only the user changes it, by editing `.claude/team/sessions.json` and `specialists.txt` by hand. Sessions that
 do not register (like the setup session) are outside the team and unfenced.
@@ -465,8 +591,9 @@ do not register (like the setup session) are outside the team and unfenced.
 ## What the specialists do and do not do
 
 - They work on what the lead or the user assigns; they never start work of their own.
-- They never change code, config, git, `.claude/`, `docs/` or the user's browser, and never contact a server. A
-  finding that needs a change goes to the lead with the place and the direction of the fix.
+- They never change code, config, git, `.claude/`, `docs/` or the user's browser, and never contact a server; the
+  one exception is an adviser's own `docs/<area>/`. A finding that needs a change goes to the lead with the place and
+  the direction of the fix; an adviser's proposal goes to the lead as a document in its folder plus a short summary.
 - `@@prefix@@-qa` runs code only through `.claude/skills/cr/scripts/qa-sandbox.sh` (offline sandbox).
 - The first rule holds for everyone: do only what the user said; a plan is built only after the user's own explicit
   yes, and a yes covers only what the user named.
@@ -476,17 +603,21 @@ do not register (like the setup session) are outside the team and unfenced.
 - Reviews of a change go through `/cr` (subagents, in parallel, one report in `docs/code-review/`).
 - A whole-project review or test (the user asked for the whole project in words) goes to the specialist sessions
   instead of subagents. In one turn, send one task per message: correctness to «@@TEAM@@ reviewer», the security
-  surface to «@@TEAM@@ security reviewer», offline tests to «@@TEAM@@ QA». Each task carries the target block,
+  surface to «@@TEAM@@ security reviewer», each project reviewer's area to its session, offline tests to «@@TEAM@@
+  QA». Each task carries the target block,
   `SCOPE: whole project — the user asked: "<their words>"`, and asks for the result in one message to the lead. When
   the review answers arrive, send the blocking and unconfirmed findings to «@@TEAM@@ review verifier», then write the
   one report in `docs/code-review/` as `/cr` does. With no registered team sessions, run `/cr` with subagents.
 - The specialist sessions are also for work that outlives one review: a re-review after fixes, a deeper look the
   user asked for, QA of a fix, a second opinion on a disputed finding («@@TEAM@@ review verifier»).
+- Advisers get work from the lead or the user, never from a diff: one task per message with the question, the inputs
+  (files, data, the user's words quoted) and what to write into its `docs/<area>/`. The lead decides what of a
+  proposal becomes code, after the user's yes when the user has not decided it yet.
 - The lead appends the user's decisions to `docs/team/LOG.md` (date, decision, the user's words quoted).
   Specialists read it.
 - A new agent or role: add `.claude/agents/<name>.md`, register it in `SPECIALISTS` of `.claude/hooks/agent-guard.py`
-  and in `ROLES` of `.claude/team/register.py`, add it to the table above, then run
-  `python3 .claude/hooks/agent-guard-cases.py`.
+  (an adviser with its `docs/<area>/`) and in `ROLES` of `.claude/team/register.py`, add it to the table above (and a
+  project reviewer to the reviewers table of `/cr`), then run `python3 .claude/hooks/agent-guard-cases.py`.
 ````
 
 ## T4. `.claude/skills/cr/SKILL.md`
@@ -494,7 +625,7 @@ do not register (like the setup session) are outside the team and unfenced.
 ````markdown
 ---
 name: cr
-description: Code review of a @@PROJECT@@ change — the working tree under git, a commit or a range, or, when the project is not under git, the files the user names. Lints the change offline, runs the matching @@prefix@@-* reviewer agents in parallel (correctness, security), has a verifier try to refute every blocking finding, and writes one report in @@LANGUAGE@@ to docs/code-review/. Use whenever asked to review, check or look over code in this repository. With --qa it hands the change to @@prefix@@-qa afterwards.
+description: Code review of a @@PROJECT@@ change — the working tree under git, a commit or a range, or, when the project is not under git, the files the user names. Lints the change offline, runs the matching @@prefix@@-* reviewer agents in parallel (correctness, security<, and the project reviewers' areas>), has a verifier try to refute every blocking finding, and writes one report in @@LANGUAGE@@ to docs/code-review/. Use whenever asked to review, check or look over code in this repository. With --qa it hands the change to @@prefix@@-qa afterwards.
 argument-hint: "[file... | sha | sha1..sha2] [--qa] [--deep]"
 ---
 
@@ -584,8 +715,10 @@ when the change touches them. A `FAIL` is a blocking finding by itself: report i
 |---|---|
 | `@@prefix@@-reviewer` | any code or config change. Always the main reviewer |
 | `@@prefix@@-security-reviewer` | the change touches <this project's security surface, as concrete grep patterns: auth and sessions, input parsing, HTML sinks, SQL, shell and process calls, file paths, outgoing URLs, secrets, permissions, crypto, CORS, deserialization, and whatever else applies>. Check with `grep -nE` on the diff or the files rather than guessing |
+<one row per project reviewer of the team table: its slug, and its trigger as concrete paths and a `grep -nE` pattern on the diff>
 
-Docs-only changes get no agent: compare the document with the code yourself, briefly.
+Project advisers are not part of `/cr`; the lead tasks them. Docs-only changes get no agent: compare the document
+with the code yourself, briefly.
 
 Launch the reviewers **in one message** so they run in parallel, and wait for all of them. If an agent type is
 reported as not found (agent files load when a session starts, so one added mid-session is not registered yet), do
@@ -661,16 +794,18 @@ path and the blocking findings. Add its results to the same report under a QA se
 subsections, and update the verdict line if QA changed it.
 ````
 
-## T5. The four agents
+## T5. The agents
 
-Every agent file has this shape. Write each one fully for this project; the role requirements follow the skeleton.
+One agent file per row of the team table, in this shape. Write each one fully for this project; the role
+requirements follow the skeleton. An adviser replaces "Scope", "Input" and the review vocabulary as its requirements
+say.
 
 ````markdown
 ---
 name: @@prefix@@-<role>
-description: <One paragraph: what it does on this project, that /cr launches it and when, and when not to use it. Never "MUST BE USED" or "PROACTIVELY".>
+description: <One paragraph: what it does on this project, who launches it and when (/cr and its trigger, or the lead's tasks for an adviser), and when not to use it. Never "MUST BE USED" or "PROACTIVELY".>
 model: inherit
-color: <reviewer blue, security reviewer red, verifier yellow, QA green>
+color: <reviewer blue, security reviewer red, verifier yellow, QA green, project reviewers cyan, advisers purple, pink or orange>
 tools: ["Read", "Grep", "Glob", "Bash", "Skill"]
 ---
 
@@ -761,6 +896,23 @@ Role requirements:
   is listed as not checked, with manual steps for the user. Output: the report sections, every case it ran with its
   result, the command and the relevant output lines for each failure. It never reports "works" for something it did
   not run.
+- **Project reviewer `@@prefix@@-<area>-reviewer`**, one per row of that kind. The reviewer's shape, process and
+  output, narrowed to what it owns: it loads the house skill and its own helper skills, reads the changed lines in
+  its area and whatever they touch outside it, and walks a checklist of 10 to 25 items for its area only (a SQL
+  reviewer: query plans against the real indexes, N+1 loads, locks and transactions, migrations; a scene reviewer:
+  resource lifetime, per-frame cost, determinism; an API reviewer: contract changes and their callers). It does not
+  repeat the general reviewer: a problem outside its area is one line under "for later". "Blocking" is defined for
+  its area. The description names its `/cr` trigger.
+- **Project adviser `@@prefix@@-<role>`**, one per row of that kind. `tools` adds `"Write"`; it writes only its
+  `docs/<area>/` (Markdown, CSV or JSON data, self-contained static HTML mockups), never code, config, `.claude/` or
+  other folders. It works on the task the lead or the user gives, not on a diff: its "Scope" section reads "the
+  question you are given, nothing wider; widen only when the lead or the user says so", and its "Input" section names
+  what it reads for its field (the code paths, data files, screenshots, documents). It thinks as the principal of its
+  field (product manager, designer, lawyer, analyst …): every claim rests on the code, on data in the project or on a
+  source it names, and assumptions are marked as such. No network: what needs the web becomes a list of sources or
+  questions for the user. Its helper skills are the ECC skills of its domain. Output: the document in its folder,
+  plus a short message to the lead (what it found, what it proposes, what the lead or the user must decide). It never
+  presents a proposal as done and never changes code; the lead decides.
 
 ## T6. `docs/team/LOG.md`
 
@@ -770,9 +922,12 @@ Role requirements:
 The lead «@@LEAD@@» appends the user's decisions here: date, decision, the user's words quoted. Entries are never
 rewritten or deleted; a changed decision gets a new entry.
 
-- **@@DATE@@** — Claude Code setup from the one-prompt team setup. ECC commit <hash>: helper skills <list>. House
-  agents `@@prefix@@-reviewer`, `@@prefix@@-security-reviewer`, `@@prefix@@-review-verifier`, `@@prefix@@-qa`;
-  house skill `@@prefix@@-@@area@@`; `/cr`; reports in @@LANGUAGE@@; <git state>. The setup prompt's decisions apply:
+- **@@DATE@@** — Claude Code setup from the one-prompt team setup. <Mode: "given project", or "interview" with each
+  of my answers quoted.> ECC commit <hash>: helper skills <list>. Team: core `@@prefix@@-reviewer`,
+  `@@prefix@@-security-reviewer`, `@@prefix@@-review-verifier`, `@@prefix@@-qa`; project specialists <each slug, its
+  kind and why>; house skill `@@prefix@@-@@area@@`; `/cr`; reports in @@LANGUAGE@@; <git state>. <Interview mode:
+  "Once the first real code lands, the lead proposes refreshing AGENTS.md, the house skill, the agents' checklists and
+  the team table from the code, and does it after the user's yes.">. The setup prompt's decisions apply:
   hybrid failure mode, allowlist guard, offline QA, a team of sessions led by «@@LEAD@@», the lead pinned and the
   team detached. User: <quote the words I wrote around the prompt, or "setup prompt sent without comment">.
 ````
@@ -802,7 +957,8 @@ an ALLOWLIST:
   `.claude/agents/*.md` is registered.
 - Tools: only TOOLS. No web, no MCP (the harness's own `mcp__ccd_turn__*` aside), no Agent/Task: a general-purpose
   child would run without this guard. SendMessage only to the team's registered sessions.
-- Write / Edit: only the folders in SPECIALISTS for that agent (@@prefix@@-qa: /tmp/@@prefix@@-qa/). Nobody else writes.
+- Write / Edit: only the folders in SPECIALISTS for that agent (@@prefix@@-qa: /tmp/@@prefix@@-qa/; a project adviser:
+  its docs/<area>/). Nobody else writes.
 - Read / Grep / Glob: never `.env`-style files or key files, never the user's home outside the project and
   ~/.claude/{skills,plugins} (browser profiles, SSH keys and cloud credentials live there).
 - Bash, tokenized here with quotes as the shell sees them: every simple command is a read-only program from
@@ -823,7 +979,11 @@ import re
 import sys
 
 PREFIX = "@@prefix@@-"
-# agent name -> folders it may write (absolute). Register every new .claude/agents/@@prefix@@-*.md here.
+# ROOT stays above SPECIALISTS: advisers' folders are built from it, and an error at module level would exit 1.
+ROOT = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+# agent name -> folders it may write (absolute). One entry per row of the team table; register every new
+# .claude/agents/@@prefix@@-*.md here. A project adviser writes only its own docs/<area>/, for example
+# "@@prefix@@-product-manager": [os.path.join(ROOT, "docs", "product")].
 SPECIALISTS = {
     "@@prefix@@-reviewer": [],
     "@@prefix@@-security-reviewer": [],
@@ -837,7 +997,6 @@ TOOLS = {"Read", "Grep", "Glob", "Bash", "Skill", "ToolSearch", "TodoWrite", "Ta
          "advisor"}
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 
-ROOT = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 # The registry of the team of sessions (.claude/team/register.py). @@PREFIX@@_TEAM_DIR exists for agent-guard-cases.py.
 TEAM = os.environ.get("@@PREFIX@@_TEAM_DIR") or os.path.join(ROOT, ".claude", "team")
 HOME = os.path.realpath(os.path.expanduser("~"))
@@ -1439,6 +1598,29 @@ home_cwd = subprocess.run([sys.executable, GUARD], text=True, capture_output=Tru
                           input=payload(R, "Bash", {"command": "ls"}, cwd=HOME))
 report(home_cwd.returncode == 2, "guard bash refuses a working directory in home", home_cwd.stderr.strip()[:200])
 
+# 2a. Every specialist's write fence (core roles, project reviewers and advisers) ---------------------------------
+DOCS = os.path.join(ROOT, "docs")
+LEAD_ONLY = [os.path.join(DOCS, "team"), os.path.join(DOCS, "code-review")]
+for name, folders in guard.SPECIALISTS.items():
+    for folder in folders:
+        real = os.path.realpath(folder)  # a docs/<area> that is a symlink into the code would pass a plain string check
+        own_docs = real.startswith(DOCS + "/") and not any(real == d or real.startswith(d + "/") for d in LEAD_ONLY)
+        report(folder == QA_DIR or own_docs,
+               f"fence {name}: writes only /tmp QA scratch or its own docs/<area>/ (not docs/team, docs/code-review)",
+               folder)
+    others = [f for other, fs in guard.SPECIALISTS.items() if other != name for f in fs if f not in folders]
+    expectations = [(os.path.join(folder, "guard-probe.md"), 0) for folder in folders]
+    expectations += [(os.path.join(folder, "..", "escape.md"), 2) for folder in folders]
+    expectations += [(f"{ROOT}/{CODE}", 2), (f"{ROOT}/.claude/settings.json", 2), (f"{ROOT}/.claude/agents/x.md", 2),
+                     (os.path.join(LEAD_ONLY[0], "LOG.md"), 2), (os.path.join(LEAD_ONLY[1], "x.md"), 2)]
+    expectations += [(os.path.join(folder, "x.md"), 2) for folder in others]
+    for target, expected in expectations:
+        run = subprocess.run([sys.executable, GUARD], text=True, capture_output=True,
+                             input=payload(name, "Write", {"file_path": target}))
+        report(run.returncode == expected,
+               f"fence {name}: Write {os.path.relpath(target, ROOT)} {'allowed' if expected == 0 else 'refused'}",
+               f"exit {run.returncode}: {run.stderr.strip()[:160]}")
+
 # 2b. Team sessions (registered with .claude/team/register.py) --------------------------------------------------
 team_dir = tempfile.mkdtemp(prefix=P + "team-cases-")
 json.dump({"S-REV": {"role": R, "name": "@@TEAM@@ reviewer"},
@@ -1582,6 +1764,7 @@ import os
 import sys
 import tempfile
 
+# lead plus one entry per row of the team table: the same slugs as SPECIALISTS in .claude/hooks/agent-guard.py
 ROLES = (
     "lead",
     "@@prefix@@-reviewer",
@@ -1742,7 +1925,7 @@ def main() -> None:
         context = (
             "@@PROJECT@@ team: if this session is the lead or one of the specialists, register it first — "
             "`python3 .claude/team/register.py <role> \"<this session's name from ListAgents>\"` "
-            "(roles: lead, @@prefix@@-reviewer, @@prefix@@-security-reviewer, @@prefix@@-review-verifier, @@prefix@@-qa) — then "
+            "(the roles are listed in ROLES of .claude/team/register.py; the team skill says which is which) — then "
             "read the skill `@@prefix@@-team`. Other sessions need nothing."
         )
 
